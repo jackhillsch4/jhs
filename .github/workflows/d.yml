@@ -1,0 +1,46 @@
+name: D · Indicator Rebuild
+
+on:
+  workflow_dispatch:
+    inputs:
+      from_date:
+        description: "Rebuild from date YYYY-MM-DD (blank = full rebuild)"
+        required: false
+        default: ""
+
+jobs:
+  indicators:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          repository: noveljack/screener
+          token: ${{ secrets.SCREENER_PAT }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Inject secrets & vars
+        env:
+          CTX: ${{ secrets.CTX }}
+          VARS: ${{ secrets.VARS }}
+        run: python ci.py inject
+
+      - name: Rebuild indicators
+        run: |
+          if [ -n "${{ inputs.from_date }}" ]; then
+            python ci.py 8 --from "${{ inputs.from_date }}"
+          else
+            python ci.py 8
+          fi
+
+      - name: Push output to Drive
+        run: python ci.py 16
