@@ -1,0 +1,39 @@
+name: S · Monthly Master Refresh
+
+on:
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          repository: noveljack/screener
+          token: ${{ secrets.SCREENER_PAT }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Inject secrets & vars
+        env:
+          CTX: ${{ secrets.CTX }}
+          VARS: ${{ secrets.VARS }}
+        run: python ci.py inject
+
+      - name: Refresh stock + ETF master
+        run: python ci.py 13
+
+      - name: Refresh halal classifications
+        run: python ci.py 9
+
+      - name: Push output to Drive
+        run: python ci.py 16
