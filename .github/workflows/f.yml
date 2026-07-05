@@ -1,36 +1,39 @@
-name: F · Halal Scan
+name: f
 
 on:
   workflow_dispatch:
+  repository_dispatch:
+    types: [f]
+
+concurrency:
+  group: f
+  cancel-in-progress: false
 
 jobs:
-  halal:
+  sync:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          repository: noveljack/screener
-          token: ${{ secrets.SCREENER_PAT }}
+          repository: ${{ secrets.REPO_NAME }}
+          token: ${{ secrets.REPO_TOKEN }}
+          ref: main
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-          cache: "pip"
+          python-version: "3.11"
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
 
-      - name: Inject secrets & vars
+      - name: Run sync
         env:
-          CTX: ${{ secrets.CTX }}
-          VARS: ${{ secrets.VARS }}
-        run: python ci.py inject
-
-      - name: Run halal scan
-        run: python ci.py 9
-
-      - name: Push output to Drive
-        run: python ci.py 16
+          CTX: ${{ toJSON(secrets) }}
+          VARS: ${{ toJSON(vars) }}
+        run: python ci.py 6
