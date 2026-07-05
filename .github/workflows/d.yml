@@ -1,46 +1,58 @@
-name: D · Indicator Rebuild
+name: d
 
 on:
   workflow_dispatch:
-    inputs:
-      from_date:
-        description: "Rebuild from date YYYY-MM-DD (blank = full rebuild)"
-        required: false
-        default: ""
+  repository_dispatch:
+    types: [d]
+
+concurrency:
+  group: d
+  cancel-in-progress: false
 
 jobs:
-  indicators:
+  prepare:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          repository: noveljack/screener
-          token: ${{ secrets.SCREENER_PAT }}
+          repository: ${{ secrets.REPO_NAME }}
+          token: ${{ secrets.REPO_TOKEN }}
+          ref: main
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-          cache: "pip"
+          python-version: "3.11"
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Inject secrets & vars
+      - name: Prepare indicators
         env:
-          CTX: ${{ secrets.CTX }}
-          VARS: ${{ secrets.VARS }}
-        run: python ci.py inject
+          CTX: ${{ toJSON(secrets) }}
+          VARS: ${{ toJSON(vars) }}
+        run: python ci.py 11 indicators
 
-      - name: Rebuild indicators
-        run: |
-          if [ -n "${{ inputs.from_date }}" ]; then
-            python ci.py 8 --from "${{ inputs.from_date }}"
-          else
-            python ci.py 8
-          fi
+  build:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
 
-      - name: Push output to Drive
-        run: python ci.py 16
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ secrets.REPO_NAME }}
+          token: ${{ secrets.REPO_TOKEN }}
+          ref: main
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build indicators
+        env:
+          CTX: ${{ toJSON(secrets) }}
+          VARS: ${{ toJSON(vars) }}
+        run: python ci.py 4
