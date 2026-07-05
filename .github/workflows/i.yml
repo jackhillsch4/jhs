@@ -1,36 +1,88 @@
-name: I · Index & World Data
+name: i
 
 on:
   workflow_dispatch:
+  repository_dispatch:
+    types: [i]
+
+concurrency:
+  group: i
+  cancel-in-progress: false
 
 jobs:
-  index:
+  prepare:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          repository: noveljack/screener
-          token: ${{ secrets.SCREENER_PAT }}
+          repository: ${{ secrets.REPO_NAME }}
+          token: ${{ secrets.REPO_TOKEN }}
+          ref: main
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-          cache: "pip"
+          python-version: "3.11"
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Inject secrets & vars
+      - name: Prepare EOD
         env:
-          CTX: ${{ secrets.CTX }}
-          VARS: ${{ secrets.VARS }}
-        run: python ci.py inject
+          CTX: ${{ toJSON(secrets) }}
+          VARS: ${{ toJSON(vars) }}
+        run: python ci.py 11 eod
 
-      - name: Fetch index & world data
-        run: python ci.py 11
+  build:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
 
-      - name: Push output to Drive
+    strategy:
+      max-parallel: 16
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ secrets.REPO_NAME }}
+          token: ${{ secrets.REPO_TOKEN }}
+          ref: main
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build shard ${{ matrix.shard }}
+        env:
+          CTX: ${{ toJSON(secrets) }}
+          VARS: ${{ toJSON(vars) }}
+        run: python ci.py 10 ${{ matrix.shard }}
+
+  reduce:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ secrets.REPO_NAME }}
+          token: ${{ secrets.REPO_TOKEN }}
+          ref: main
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Reduce results
+        env:
+          CTX: ${{ toJSON(secrets) }}
+          VARS: ${{ toJSON(vars) }}
         run: python ci.py 16
