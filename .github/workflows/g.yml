@@ -1,36 +1,34 @@
-name: G · Bootstrap Dims
+name: g
 
 on:
   workflow_dispatch:
+  repository_dispatch:
+    types: [g]
+
+concurrency:
+  group: g
+  cancel-in-progress: false
 
 jobs:
-  dims:
+  bootstrap:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          repository: noveljack/screener
-          token: ${{ secrets.SCREENER_PAT }}
+          repository: ${{ secrets.REPO_NAME }}
+          token: ${{ secrets.REPO_TOKEN }}
+          ref: main
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-          cache: "pip"
+          python-version: "3.11"
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Inject secrets & vars
+      - name: Bootstrap
         env:
-          CTX: ${{ secrets.CTX }}
-          VARS: ${{ secrets.VARS }}
-        run: python ci.py inject
-
-      - name: Bootstrap stock + ETF master dims
-        run: python ci.py 4
-
-      - name: Push dims to Drive
-        run: python ci.py 16
+          CTX: ${{ toJSON(secrets) }}
+          VARS: ${{ toJSON(vars) }}
+        run: python ci.py 8
