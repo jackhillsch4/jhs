@@ -1,52 +1,39 @@
-name: A · Daily Screener
+name: a
 
 on:
   workflow_dispatch:
+  repository_dispatch:
+    types: [a]
+
+concurrency:
+  group: a
+  cancel-in-progress: false
 
 jobs:
-  screen:
+  run:
     runs-on: ubuntu-latest
-
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+    timeout-minutes: 360
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          repository: noveljack/screener
-          token: ${{ secrets.SCREENER_PAT }}
+          repository: ${{ secrets.REPO_NAME }}
+          token: ${{ secrets.REPO_TOKEN }}
+          ref: main
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-          cache: "pip"
+          python-version: "3.11"
 
-      - name: Restore Kronos model cache
-        uses: actions/cache@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          path: ~/.cache/huggingface
-          key: kronos-model-v1
+          node-version: "20"
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Inject secrets & vars
+      - name: Run workflow
         env:
-          CTX: ${{ secrets.CTX }}
-          VARS: ${{ secrets.VARS }}
-        run: python ci.py inject
-
-      - name: Screen shard ${{ matrix.shard }}
-        run: python ci.py 1 --shard ${{ matrix.shard }} --total 8
-
-      - name: Rank signals (shard 0 only)
-        if: ${{ matrix.shard == 0 }}
-        run: python ci.py 2
-
-      - name: Push output to Drive (shard 0 only)
-        if: ${{ matrix.shard == 0 }}
-        run: python ci.py 16
+          CTX: ${{ toJSON(secrets) }}
+          VARS: ${{ toJSON(vars) }}
+        run: python ci.py 1
